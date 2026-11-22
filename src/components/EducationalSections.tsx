@@ -100,17 +100,17 @@ export function EducationalSections({
               <tr className="hover:bg-slate-50/60">
                 <td className="py-3 px-4 font-medium text-slate-900">Bitrate Video</td>
                 <td className="py-3 px-4 font-mono tabular-nums text-xs">15 – 50 Mbps</td>
-                <td className="py-3 px-4 font-mono tabular-nums text-xs text-red-700">0.8 – 1.3 Mbps (pecah)</td>
+                <td className="py-3 px-4 font-mono tabular-nums text-xs text-red-700">0.5 – 0.9 Mbps (pecah)</td>
                 <td className="py-3 px-4 font-mono tabular-nums text-xs font-semibold text-emerald-700">
-                  2.2 – 3.8 Mbps (terkendali)
+                  1.1 – 1.4 Mbps (Bypass Ketat)
                 </td>
               </tr>
               <tr className="hover:bg-slate-50/60">
                 <td className="py-3 px-4 font-medium text-slate-900">Codec & Warna</td>
                 <td className="py-3 px-4 font-mono text-xs">HEVC / 10-bit HDR</td>
-                <td className="py-3 px-4 font-mono text-xs">H.264 Baseline (pudar)</td>
+                <td className="py-3 px-4 font-mono text-xs">Kompresi ganda WA</td>
                 <td className="py-3 px-4 font-mono text-xs font-semibold text-emerald-700">
-                  H.264 High@L4.0 (yuv420p)
+                  H.264 Baseline@L3.1 (yuv420p)
                 </td>
               </tr>
               <tr className="hover:bg-slate-50/60">
@@ -124,9 +124,9 @@ export function EducationalSections({
               <tr className="hover:bg-slate-50/60">
                 <td className="py-3 px-4 font-medium text-slate-900">Ukuran (15 detik)</td>
                 <td className="py-3 px-4 font-mono tabular-nums text-xs">35 – 90 MB</td>
-                <td className="py-3 px-4 font-mono tabular-nums text-xs">1.8 – 2.5 MB</td>
+                <td className="py-3 px-4 font-mono tabular-nums text-xs">1.5 – 2.2 MB</td>
                 <td className="py-3 px-4 font-mono tabular-nums text-xs font-semibold text-emerald-700">
-                  4.5 – 7.5 MB (aman & tajam)
+                  2.2 – 3.0 MB (tajam &amp; lolos WA)
                 </td>
               </tr>
             </tbody>

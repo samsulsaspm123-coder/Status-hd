@@ -1,6 +1,7 @@
 import type {
   AutoRecommendation,
   EncodeSettings,
+  H264ProfileOption,
   ResolutionOption,
   VideoProbeInfo,
 } from '../types/encoder.ts';
@@ -19,7 +20,6 @@ export function computeTargetDimensions(
     return { width: 1080, height: 1920 };
   }
 
-  // aspectMode === 'keep'
   if (resolution === 'original') {
     return { width: ensureEven(srcWidth), height: ensureEven(srcHeight) };
   }
@@ -49,76 +49,91 @@ export function computeEncodingPlan(
       : probe.duration;
   const effectiveDuration = Math.max(1, end - start);
 
-  // Audio bitrate budget: 128 kbps if audio exists, else 0
-  const audioKbps = probe.hasAudio ? 128 : 0;
+  // Audio budget: 96 kbps for strict WA bypass (matches WA mobile spec), 128 kbps otherwise
+  const audioKbps = !probe.hasAudio
+    ? 0
+    : settings.mode === 'auto' && settings.waPreset === 'strict_bypass'
+      ? 96
+      : 128;
 
-  // Target size cap in MB (default WA Safe = 14.2 MB, well below 16 MB hard cap)
-  const capMb = settings.mode === 'auto' ? 14.2 : settings.useTargetSizeCap ? settings.targetSizeMb : 0;
+  // Target size cap in MB (10.5 MB in strict bypass ensures low bitrate/size trigger safety)
+  const capMb =
+    settings.mode === 'auto'
+      ? settings.waPreset === 'strict_bypass'
+        ? 10.5
+        : 14.0
+      : settings.useTargetSizeCap
+        ? settings.targetSizeMb
+        : 0;
 
-  // Max total bitrate allowed to stay under capMb (94% safety factor for container overhead)
   const maxTotalKbpsFromCap =
     capMb > 0 ? Math.floor(((capMb * 1024 * 8) / effectiveDuration) * 0.94) : 12000;
-  const maxVideoKbpsFromCap = Math.max(450, maxTotalKbpsFromCap - audioKbps);
+  const maxVideoKbpsFromCap = Math.max(400, maxTotalKbpsFromCap - audioKbps);
 
   let resolvedRes: Exclude<ResolutionOption, 'auto'>;
   let crf: number;
   let maxVideoKbps: number;
   let targetFps: number;
+  let h264Profile: H264ProfileOption;
+  let h264Level: string;
   let reason: string;
 
   if (settings.mode === 'auto') {
     const srcShortEdge = Math.min(probe.width, probe.height);
 
-    // If user explicitly picked a resolution even in Auto mode, honor it; otherwise auto-pick!
     if (settings.resolution !== 'auto') {
       resolvedRes = settings.resolution;
-    } else if (effectiveDuration <= 22 && srcShortEdge >= 1000 && maxVideoKbpsFromCap >= 3200) {
+    } else if (settings.waPreset === 'hd_1080' && srcShortEdge >= 1000) {
       resolvedRes = '1080p';
-    } else if (srcShortEdge >= 640 && maxVideoKbpsFromCap >= 1350) {
-      resolvedRes = '720p';
-    } else if (maxVideoKbpsFromCap < 1350 && srcShortEdge > 540) {
+    } else if (maxVideoKbpsFromCap < 900 && srcShortEdge > 540) {
       resolvedRes = '540p';
     } else {
-      resolvedRes = '720p';
+      // Never auto-pick 1080p in strict_bypass or balanced_720 because WhatsApp Status caps at 720p
+      resolvedRes = srcShortEdge < 640 ? '540p' : '720p';
     }
 
-    if (resolvedRes === '1080p') {
-      maxVideoKbps = Math.min(3800, maxVideoKbpsFromCap);
-      crf = 20;
-      reason =
-        'Klip berdurasi ringkas: 1080p Full HD dengan batas puncak 3.8 Mbps tetap muat di bawah batas 14.2 MB sehingga detail tetap tajam di Story WA.';
-    } else if (resolvedRes === '720p') {
-      maxVideoKbps = Math.min(2650, maxVideoKbpsFromCap);
-      crf = 21;
-      reason =
-        'Sweet Spot Anti-Blur WA: 720p H.264 High@L4.0 dengan bitrate terkendali mencegah server WhatsApp melakukan kompresi ulang yang membuat buram.';
-    } else if (resolvedRes === '540p') {
-      maxVideoKbps = Math.min(1650, maxVideoKbpsFromCap);
+    if (settings.waPreset === 'strict_bypass') {
+      h264Profile = 'baseline';
+      h264Level = resolvedRes === '1080p' ? '4.0' : '3.1';
+      const ceiling = resolvedRes === '1080p' ? 1800 : resolvedRes === '720p' ? 1250 : 850;
+      maxVideoKbps = Math.min(ceiling, maxVideoKbpsFromCap);
       crf = 22;
       reason =
-        'Durasi klip panjang: Resolusi 540p menjaga kerapatan piksel tetap bersih tanpa pecah (blocking) agar ukuran file aman di bawah batas unggah WA.';
-    } else {
-      maxVideoKbps = Math.min(3400, maxVideoKbpsFromCap);
+        'Mode Bypass Ketat (720p · Baseline@L3.1 · ~1.25 Mbps): mengunci bitrate di bawah ambang kompresi paksa Status WhatsApp sehingga WA tidak mengompres ulang secara kasar.';
+    } else if (settings.waPreset === 'balanced_720') {
+      h264Profile = 'main';
+      h264Level = resolvedRes === '1080p' ? '4.0' : '3.1';
+      const ceiling = resolvedRes === '1080p' ? 2200 : resolvedRes === '720p' ? 1750 : 1100;
+      maxVideoKbps = Math.min(ceiling, maxVideoKbpsFromCap);
       crf = 21;
       reason =
-        'Mempertahankan resolusi asli dengan normalisasi codec H.264 8-bit SDR dan batas bitrate aman untuk unggahan WhatsApp.';
+        'Mode Seimbang (~1.75 Mbps · Main@L3.1): menjaga detail ekstra untuk klip minim gerakan cepat atau saat opsi HD Status aktif.';
+    } else {
+      h264Profile = 'main';
+      h264Level = '4.0';
+      const ceiling = resolvedRes === '1080p' ? 2500 : resolvedRes === '720p' ? 2000 : 1300;
+      maxVideoKbps = Math.min(ceiling, maxVideoKbpsFromCap);
+      crf = 20;
+      reason =
+        'Mode HD 1080p (~2.5 Mbps): khusus bila fitur HD Status WA aktif atau jika video dikirim lewat chat HD lalu diteruskan (Forward) ke Story.';
     }
 
     targetFps = probe.fps > 31 ? 30 : Math.max(15, Math.round(probe.fps || 30));
   } else {
-    // Manual mode
     resolvedRes = settings.resolution === 'auto' ? '720p' : settings.resolution;
     crf = settings.crf;
+    h264Profile = settings.h264Profile || 'baseline';
+    h264Level = resolvedRes === '1080p' || resolvedRes === 'original' ? '4.0' : '3.1';
 
     const defaultCeilingByRes: Record<Exclude<ResolutionOption, 'auto'>, number> = {
-      '1080p': 4500,
-      '720p': 2800,
-      '540p': 1800,
-      original: 4800,
+      '1080p': 2600,
+      '720p': 1600,
+      '540p': 1050,
+      original: 2600,
     };
 
     maxVideoKbps = settings.useTargetSizeCap
-      ? Math.min(defaultCeilingByRes[resolvedRes] + 1000, maxVideoKbpsFromCap)
+      ? Math.min(defaultCeilingByRes[resolvedRes] + 400, maxVideoKbpsFromCap)
       : defaultCeilingByRes[resolvedRes];
 
     if (settings.fps === '30') targetFps = 30;
@@ -126,8 +141,8 @@ export function computeEncodingPlan(
     else targetFps = Math.min(60, Math.max(15, Math.round(probe.fps || 30)));
 
     reason = settings.useTargetSizeCap
-      ? `Mode Manual dengan target batas maksimal ${capMb.toFixed(1)} MB dan kualitas CRF ${crf}.`
-      : `Mode Manual berbasis kualitas CRF ${crf} dengan plafon bitrate ${(maxVideoKbps / 1000).toFixed(1)} Mbps.`;
+      ? `Mode Manual (${h264Profile.toUpperCase()}@L${h264Level}) dengan batas maksimal ${capMb.toFixed(1)} MB dan CRF ${crf}.`
+      : `Mode Manual (${h264Profile.toUpperCase()}@L${h264Level}) dengan CRF ${crf} dan plafon ${(maxVideoKbps / 1000).toFixed(2)} Mbps.`;
   }
 
   const dims = computeTargetDimensions(
@@ -137,8 +152,7 @@ export function computeEncodingPlan(
     settings.aspectMode
   );
 
-  // Estimate average bitrate (~78% of maxrate for constrained CRF, bounded by cap)
-  const avgEstimatedVideoKbps = Math.min(maxVideoKbps, Math.round(maxVideoKbps * 0.82));
+  const avgEstimatedVideoKbps = Math.min(maxVideoKbps, Math.round(maxVideoKbps * 0.85));
   const estimatedSizeMb = Math.max(
     0.2,
     ((avgEstimatedVideoKbps + audioKbps) * effectiveDuration) / 8 / 1024
@@ -149,6 +163,9 @@ export function computeEncodingPlan(
     targetWidth: dims.width,
     targetHeight: dims.height,
     targetMaxBitrateKbps: maxVideoKbps,
+    audioBitrateKbps: audioKbps,
+    h264Profile,
+    h264Level,
     crf,
     targetFps,
     estimatedSizeMb: Number(estimatedSizeMb.toFixed(2)),

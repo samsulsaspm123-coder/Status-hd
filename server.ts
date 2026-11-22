@@ -399,9 +399,9 @@ function buildFfmpegArgs(
     '-c:v',
     'libx264',
     '-profile:v',
-    'high',
+    plan.h264Profile,
     '-level',
-    '4.0',
+    plan.h264Level,
     '-preset',
     'medium',
     '-crf',
@@ -428,8 +428,8 @@ function buildFfmpegArgs(
     'yuv420p'
   );
 
-  if (probe.hasAudio) {
-    args.push('-c:a', 'aac', '-b:a', '128k', '-ar', '48000', '-ac', '2');
+  if (probe.hasAudio && plan.audioBitrateKbps > 0) {
+    args.push('-c:a', 'aac', '-b:a', `${plan.audioBitrateKbps}k`, '-ar', '44100', '-ac', '2');
   } else {
     args.push('-an');
   }
@@ -812,11 +812,13 @@ async function startServer() {
 
       const settings: EncodeSettings = {
         mode: 'auto',
+        waPreset: 'strict_bypass',
+        h264Profile: 'baseline',
         resolution,
         aspectMode,
-        targetSizeMb: 14.2,
+        targetSizeMb: 10.5,
         useTargetSizeCap: true,
-        crf: 21,
+        crf: 22,
         fps: 'auto',
         sharpen: true,
         normalizeHdr: true,
@@ -1084,11 +1086,13 @@ startBot();
 
         const settings: EncodeSettings = {
           mode: 'auto',
+          waPreset: 'strict_bypass',
+          h264Profile: 'baseline',
           resolution,
           aspectMode: 'keep',
-          targetSizeMb: 14.2,
+          targetSizeMb: 10.5,
           useTargetSizeCap: true,
-          crf: 21,
+          crf: 22,
           fps: 'auto',
           sharpen: true,
           normalizeHdr: true,

@@ -2,6 +2,8 @@ export type ResolutionOption = 'auto' | '1080p' | '720p' | '540p' | 'original';
 export type AspectMode = 'keep' | 'fit916' | 'fill916';
 export type CompressionMode = 'auto' | 'manual';
 export type FpsOption = 'auto' | '30' | '24' | 'keep';
+export type WaPresetProfile = 'strict_bypass' | 'balanced_720' | 'hd_1080';
+export type H264ProfileOption = 'baseline' | 'main' | 'high';
 
 export interface VideoDiagnosticIssue {
   id: string;
@@ -35,9 +37,11 @@ export interface VideoProbeInfo {
 
 export interface EncodeSettings {
   mode: CompressionMode;
+  waPreset: WaPresetProfile;
+  h264Profile: H264ProfileOption;
   resolution: ResolutionOption;
   aspectMode: AspectMode;
-  targetSizeMb: number; // e.g., 14.2 for WA Safe, 10, 16, or 0 for CRF-driven
+  targetSizeMb: number; // e.g., 12 for WA Safe, 10, 15, or 0 for CRF-driven
   useTargetSizeCap: boolean;
   crf: number; // 18..28
   fps: FpsOption;
@@ -52,6 +56,9 @@ export interface AutoRecommendation {
   targetWidth: number;
   targetHeight: number;
   targetMaxBitrateKbps: number;
+  audioBitrateKbps: number;
+  h264Profile: H264ProfileOption;
+  h264Level: string;
   crf: number;
   targetFps: number;
   estimatedSizeMb: number;

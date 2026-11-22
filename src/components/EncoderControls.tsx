@@ -14,8 +14,10 @@ import type {
   EncodeJobStatus,
   EncodeSettings,
   FpsOption,
+  H264ProfileOption,
   ResolutionOption,
   VideoProbeInfo,
+  WaPresetProfile,
 } from '../types/encoder.ts';
 import { computeEncodingPlan, formatBytes, formatDuration } from '../utils/waCompressionMath.ts';
 
@@ -30,14 +32,24 @@ interface EncoderControlsProps {
   encodeError: string | null;
 }
 
+const WA_PRESET_OPTIONS: Array<{
+  value: WaPresetProfile;
+  label: string;
+  sub: string;
+}> = [
+  { value: 'strict_bypass', label: 'Bypass Ketat', sub: '720p · ~1.25 Mbps' },
+  { value: 'balanced_720', label: 'Seimbang', sub: '720p · ~1.75 Mbps' },
+  { value: 'hd_1080', label: 'HD Status', sub: '1080p · ~2.5 Mbps' },
+];
+
 const RESOLUTION_OPTIONS: Array<{
   value: ResolutionOption;
   label: string;
   hint: string;
 }> = [
-  { value: 'auto', label: 'Otomatis', hint: 'Pilih terbaik' },
-  { value: '1080p', label: '1080p HD', hint: '1080×1920' },
+  { value: 'auto', label: 'Otomatis', hint: 'Ikuti preset' },
   { value: '720p', label: '720p WA', hint: '720×1280' },
+  { value: '1080p', label: '1080p HD', hint: '1080×1920' },
   { value: '540p', label: '540p Hemat', hint: '540×960' },
   { value: 'original', label: 'Asli', hint: 'Tanpa resize' },
 ];
@@ -53,6 +65,12 @@ const FPS_OPTIONS: Array<{ value: FpsOption; label: string }> = [
   { value: '30', label: '30 fps' },
   { value: '24', label: '24 fps' },
   { value: 'keep', label: 'Asli' },
+];
+
+const H264_PROFILES: Array<{ value: H264ProfileOption; label: string }> = [
+  { value: 'baseline', label: 'Baseline (Aman WA)' },
+  { value: 'main', label: 'Main' },
+  { value: 'high', label: 'High' },
 ];
 
 export function EncoderControls({
@@ -86,8 +104,10 @@ export function EncoderControls({
       onChange({
         ...settings,
         mode: 'auto',
+        waPreset: 'strict_bypass',
+        h264Profile: 'baseline',
         useTargetSizeCap: true,
-        targetSizeMb: 14.2,
+        targetSizeMb: 10.5,
         fps: 'auto',
         sharpen: true,
         normalizeHdr: true,
@@ -158,6 +178,38 @@ export function EncoderControls({
           </button>
         </div>
       </div>
+
+      {/* Auto Mode Target Profile */}
+      {settings.mode === 'auto' && (
+        <div className="space-y-2">
+          <label className="block text-xs font-semibold text-slate-700">
+            Target Kompresi Story WA
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {WA_PRESET_OPTIONS.map((opt) => {
+              const active = settings.waPreset === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={() => update('waPreset', opt.value)}
+                  className={`text-left px-2.5 py-2 rounded-lg border transition-colors cursor-pointer disabled:opacity-60 ${
+                    active
+                      ? 'border-emerald-600 bg-emerald-50/70 text-slate-900'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="text-xs font-semibold whitespace-nowrap">{opt.label}</div>
+                  <div className="text-[11px] font-mono tabular-nums text-slate-500 mt-0.5 truncate">
+                    {opt.sub}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Resolution Selector */}
       <div className="space-y-2">
@@ -312,6 +364,30 @@ export function EncoderControls({
         <div className="space-y-4 pt-2 border-t border-slate-100">
           {settings.mode === 'manual' && (
             <>
+              {/* H.264 Profile Selector */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Profil H.264 Kompatibilitas WA
+                </label>
+                <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-lg">
+                  {H264_PROFILES.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={() => update('h264Profile', opt.value)}
+                      className={`py-1.5 px-2 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
+                        settings.h264Profile === opt.value
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Target Size Cap */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -334,7 +410,7 @@ export function EncoderControls({
 
                 {settings.useTargetSizeCap && (
                   <div className="grid grid-cols-3 gap-1.5">
-                    {[10, 14.2, 15.8].map((mb) => (
+                    {[8, 10.5, 14].map((mb) => (
                       <button
                         key={mb}
                         type="button"
@@ -346,7 +422,7 @@ export function EncoderControls({
                             : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                         }`}
                       >
-                        {mb === 14.2 ? '14.2 MB (WA)' : `${mb} MB`}
+                        {mb === 10.5 ? '10.5 MB (WA)' : `${mb} MB`}
                       </button>
                     ))}
                   </div>
@@ -414,7 +490,7 @@ export function EncoderControls({
               <span className="text-xs text-slate-700 leading-relaxed">
                 <strong className="font-semibold text-slate-900">Penajaman tepi ringan (Lanczos + Unsharp)</strong>
                 <span className="block text-slate-500">
-                  Menjaga teks dan detail wajah tetap tajam saat resolusi diturunkan ke 720p/1080p.
+                  Menjaga teks dan detail wajah tetap tajam saat resolusi diturunkan ke 720p.
                 </span>
               </span>
             </label>
@@ -430,7 +506,7 @@ export function EncoderControls({
               <span className="text-xs text-slate-700 leading-relaxed">
                 <strong className="font-semibold text-slate-900">Normalisasi warna HDR ke SDR (BT.709)</strong>
                 <span className="block text-slate-500">
-                  Mencegah warna terlihat pudar atau kelabu pada rekaman kamera 10-bit HDR.
+                  Mencegah warna terlihat pudar atau kelabu pada rekaman iPhone/Android 10-bit HDR.
                 </span>
               </span>
             </label>
@@ -440,7 +516,12 @@ export function EncoderControls({
 
       {/* Live Output Estimate Summary */}
       <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-2.5">
-        <div className="text-xs font-semibold text-slate-900">Estimasi Profil Output</div>
+        <div className="flex items-center justify-between text-xs font-semibold text-slate-900">
+          <span>Estimasi Profil Output</span>
+          <span className="font-mono text-[11px] text-slate-500">
+            {plan.h264Profile.toUpperCase()}@L{plan.h264Level}
+          </span>
+        </div>
         <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs">
           <div className="flex justify-between">
             <span className="text-slate-500">Dimensi</span>
@@ -516,14 +597,31 @@ export function EncoderControls({
         </button>
 
         {activeJob?.status === 'completed' && activeJob.output && (
-          <a
-            href={activeJob.output.downloadUrl}
-            download={activeJob.output.fileName}
-            className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            Unduh MP4 ({formatBytes(activeJob.output.fileSize)})
-          </a>
+          <>
+            <a
+              href={activeJob.output.downloadUrl}
+              download={activeJob.output.fileName}
+              className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Unduh MP4 ({formatBytes(activeJob.output.fileSize)})
+            </a>
+
+            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600 leading-relaxed space-y-1">
+              <div className="font-semibold text-slate-800">
+                Tips Posting Story (Khususnya iPhone / iOS):
+              </div>
+              <p>
+                1. Simpan video ke <strong>Foto (Photos)</strong>. Jika di editor Story WA muncul
+                tombol <strong>HD</strong> di bagian atas, pastikan Anda menyalakannya.
+              </p>
+              <p>
+                2. Cara paling ampuh jika Story langsung tetap memburamkan: kirim hasil MP4 ini ke{' '}
+                <strong>Chat Diri Sendiri (Message Yourself)</strong> dengan kualitas{' '}
+                <strong>HD</strong>, lalu tekan <strong>Teruskan (Forward) → Status Saya</strong>.
+              </p>
+            </div>
+          </>
         )}
       </div>
     </aside>

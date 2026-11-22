@@ -110,11 +110,13 @@ export function BotWhatsAppPanel({
 
         const settings: EncodeSettings = {
           mode: 'auto',
+          waPreset: 'strict_bypass',
+          h264Profile: 'baseline',
           resolution: simResolution,
           aspectMode: 'keep',
-          targetSizeMb: 14.2,
+          targetSizeMb: 10.5,
           useTargetSizeCap: true,
-          crf: 21,
+          crf: 22,
           fps: 'auto',
           sharpen: true,
           normalizeHdr: true,
