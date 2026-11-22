@@ -1,0 +1,6 @@
+{
+  "name": "StatusOptic — Encoder Video Story WhatsApp",
+  "description": "Web app encoder dan kompresi video otomatis dengan pilihan resolusi yang dioptimalkan agar video Story WhatsApp tetap tajam dan tidak buram.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
