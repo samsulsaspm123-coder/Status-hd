@@ -11,6 +11,7 @@ import type {
   VideoDiagnosticIssue,
   VideoProbeInfo,
 } from './src/types/encoder.ts';
+import { buildBaileysBotScript } from './src/utils/botScriptTemplate.ts';
 import { computeEncodingPlan } from './src/utils/waCompressionMath.ts';
 
 const execFileAsync = promisify(execFile);
@@ -901,110 +902,16 @@ async function startServer() {
     }
   });
 
-  // Downloadable ready-to-run Baileys WhatsApp Web Bot script
+  // Downloadable ready-to-run standalone Baileys + FFmpeg WhatsApp Web Bot script
   app.get('/api/bot/script', (req, res) => {
     const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
     const host = req.headers['x-forwarded-host'] || req.get('host') || `localhost:${PORT}`;
-    const apiBase = process.env.APP_URL && process.env.APP_URL !== 'MY_APP_URL'
-      ? process.env.APP_URL.replace(/\/$/, '')
-      : `${protocol}://${host}`;
+    const apiBase =
+      process.env.APP_URL && process.env.APP_URL !== 'MY_APP_URL'
+        ? process.env.APP_URL.replace(/\/$/, '')
+        : `${protocol}://${host}`;
 
-    const scriptContent = `/**
- * StatusOptic WhatsApp Bot (Baileys - WhatsApp Web)
- * Cara pakai:
- * 1. npm init -y && npm install @whiskeysockets/baileys qrcode-terminal
- * 2. Jalankan: node wa-status-bot.mjs
- * 3. Scan QR dengan WhatsApp Anda, lalu kirim video ke nomor bot!
- *    Tambahkan caption "1080p", "720p", atau "540p" (opsional, default otomatis).
- * 4. Setelah bot membalas video hasil optimasi, tekan TERUSKAN (Forward) -> Status Saya!
- */
-import makeWASocket, {
-  useMultiFileAuthState,
-  downloadMediaMessage,
-  DisconnectReason,
-} from '@whiskeysockets/baileys';
-import qrcode from 'qrcode-terminal';
-
-const API_ENDPOINT = '${apiBase}/api/bot/process';
-
-async function startBot() {
-  const { state, saveCreds } = await useMultiFileAuthState('./wa_auth_session');
-  const sock = makeWASocket({
-    auth: state,
-    printQRInTerminal: false,
-  });
-
-  sock.ev.on('creds.update', saveCreds);
-
-  sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
-    if (qr) {
-      console.log('Scan QR WhatsApp di bawah ini:');
-      qrcode.generate(qr, { small: true });
-    }
-    if (connection === 'close') {
-      const shouldReconnect =
-        lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      if (shouldReconnect) startBot();
-    } else if (connection === 'open') {
-      console.log('StatusOptic WA Bot aktif dan siap menerima video!');
-    }
-  });
-
-  sock.ev.on('messages.upsert', async ({ messages }) => {
-    const msg = messages[0];
-    if (!msg?.message || msg.key.fromMe) return;
-
-    const videoMsg =
-      msg.message.videoMessage ||
-      msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage;
-    if (!videoMsg) return;
-
-    const jid = msg.key.remoteJid;
-    const caption = (videoMsg.caption || '').toLowerCase();
-    const resolution = caption.includes('1080')
-      ? '1080p'
-      : caption.includes('540')
-        ? '540p'
-        : caption.includes('720')
-          ? '720p'
-          : 'auto';
-
-    try {
-      await sock.sendMessage(jid, {
-        text: 'Video diterima. Sedang dioptimalkan agar tajam di Story WA...',
-      });
-
-      const buffer = await downloadMediaMessage(msg, 'buffer', {});
-      const form = new FormData();
-      form.append('video', new Blob([buffer], { type: 'video/mp4' }), 'input.mp4');
-      form.append('resolution', resolution);
-
-      const response = await fetch(API_ENDPOINT, { method: 'POST', body: form });
-      if (!response.ok) throw new Error('Encode API gagal: ' + response.status);
-
-      const outBuffer = Buffer.from(await response.arrayBuffer());
-      const outMb = (outBuffer.length / (1024 * 1024)).toFixed(2);
-
-      await sock.sendMessage(
-        jid,
-        {
-          video: outBuffer,
-          mimetype: 'video/mp4',
-          caption: \`Siap Story WA (\${outMb} MB · \${resolution.toUpperCase()}).\\nTekan dan tahan video ini -> Teruskan (Forward) -> Status Saya agar tidak buram.\`,
-        },
-        { quoted: msg }
-      );
-    } catch (err) {
-      console.error('Error:', err);
-      await sock.sendMessage(jid, {
-        text: 'Maaf, gagal memproses video. Pastikan format video valid dan durasi wajar.',
-      });
-    }
-  });
-}
-
-startBot();
-`;
+    const scriptContent = buildBaileysBotScript(apiBase);
 
     res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="wa-status-bot.mjs"');

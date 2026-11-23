@@ -11,6 +11,7 @@ import {
   Upload,
 } from 'lucide-react';
 import type { EncodeSettings, ResolutionOption, VideoProbeInfo } from '../types/encoder.ts';
+import { buildBaileysBotScript } from '../utils/botScriptTemplate.ts';
 import { encodeVideoInBrowser, generateSampleInBrowser, probeVideoInBrowser } from '../utils/browserEncoder.ts';
 import { formatBytes } from '../utils/waCompressionMath.ts';
 
@@ -89,6 +90,19 @@ export function BotWhatsAppPanel({
     } catch {
       // Ignore clipboard failures in restricted iframes
     }
+  };
+
+  const handleDownloadBotScript = () => {
+    const script = buildBaileysBotScript(backendAvailable ? origin : undefined);
+    const blob = new Blob([script], { type: 'application/javascript; charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'wa-status-bot.mjs';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const runBotSimulation = async (file?: File) => {
@@ -418,15 +432,43 @@ export function BotWhatsAppPanel({
                   atau grup kecil. Biaya yang dibutuhkan hanya komputer/VPS kecil untuk menyalakan
                   bot (bisa dijalankan di laptop sendiri atau VPS ~Rp 50rb/bulan).
                 </p>
-                <div className="pt-1">
-                  <a
-                    href="/api/bot/script"
-                    download="wa-status-bot.mjs"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
+                <div className="pt-1 space-y-3">
+                  <button
+                    type="button"
+                    onClick={handleDownloadBotScript}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
                   >
                     <FileCode2 className="w-3.5 h-3.5" />
-                    Unduh Script Bot Baileys (wa-status-bot.mjs)
-                  </a>
+                    Unduh Script Bot Mandiri (wa-status-bot.mjs)
+                  </button>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2 text-[11px] text-slate-700">
+                    <div className="font-semibold text-slate-900">
+                      Langkah Menjalankan di Laptop / VPS / Termux:
+                    </div>
+                    <ol className="list-decimal list-inside space-y-1">
+                      <li>
+                        Taruh file <span className="font-mono">wa-status-bot.mjs</span> di folder baru,
+                        lalu buka Terminal/CMD di folder tersebut (pastikan Node.js 18+ terpasang).
+                      </li>
+                      <li>
+                        Install paket Baileys &amp; FFmpeg:
+                        <pre className="mt-1 font-mono text-[10px] bg-slate-900 text-slate-100 rounded p-2 overflow-x-auto">
+                          npm init -y &amp;&amp; npm install @whiskeysockets/baileys qrcode-terminal ffmpeg-static
+                        </pre>
+                      </li>
+                      <li>
+                        Jalankan <span className="font-mono font-semibold">node wa-status-bot.mjs</span>{' '}
+                        lalu scan QR lewat menu <strong>WhatsApp → Perangkat Tertaut</strong>.
+                      </li>
+                      <li>
+                        Kirim video ke nomor bot (atau ke <em>Chat Diri Sendiri</em> dengan caption{' '}
+                        <span className="font-mono">hd</span> / <span className="font-mono">720p</span> /{' '}
+                        <span className="font-mono">1080p</span>), lalu{' '}
+                        <strong>Teruskan (Forward) → Status Saya</strong>.
+                      </li>
+                    </ol>
+                  </div>
                 </div>
               </div>
 
