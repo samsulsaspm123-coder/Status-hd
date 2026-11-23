@@ -88,14 +88,14 @@ function buildBrowserDiagnostics(
       detail:
         'Video kamera dengan bitrate tinggi memicu transcoder agresif WhatsApp yang merusak ketajaman.',
     });
-  } else if (videoBitrateKbps > 3200) {
+  } else if (videoBitrateKbps > 3950) {
     warningCount++;
     diagnostics.push({
       id: 'bitrate',
       severity: 'warning',
       title: `Bitrate di atas sweet spot (~${(videoBitrateKbps / 1000).toFixed(1)} Mbps)`,
       detail:
-        'Mengunci bitrate puncak (maxrate) di kisaran 2.2–3.5 Mbps mencegah penurunan kualitas mendadak.',
+        'Mengunci bitrate puncak (maxrate) di kisaran 2.0–3.8 Mbps mencegah penurunan kualitas mendadak.',
     });
   } else {
     diagnostics.push({
@@ -282,7 +282,8 @@ export async function encodeVideoInBrowser(
       filters.push(`scale=${plan.targetWidth}:${plan.targetHeight}:flags=lanczos`);
     }
     filters.push('setsar=1');
-    if (settings.sharpen) {
+    const isDownscaling = plan.targetWidth < probe.width || plan.targetHeight < probe.height;
+    if (settings.sharpen && isDownscaling) {
       filters.push('unsharp=3:3:0.35:3:3:0.0');
     }
     filters.push('format=yuv420p');
@@ -296,7 +297,14 @@ export async function encodeVideoInBrowser(
       args.push('-t', targetDuration.toFixed(2));
     }
 
+    const bufsizeKbps = Math.round(plan.targetMaxBitrateKbps * 1.5);
+    const shouldForceFps =
+      probe.fps > 29.98 ||
+      (settings.mode === 'manual' && (settings.fps === '30' || settings.fps === '24'));
+
     args.push(
+      '-map_metadata',
+      '-1',
       '-vf',
       filters.join(','),
       '-c:v',
@@ -312,11 +320,18 @@ export async function encodeVideoInBrowser(
       '-maxrate',
       `${plan.targetMaxBitrateKbps}k`,
       '-bufsize',
-      `${plan.targetMaxBitrateKbps * 2}k`,
-      '-r',
-      String(plan.targetFps),
+      `${bufsizeKbps}k`
+    );
+
+    if (shouldForceFps) {
+      args.push('-r', String(plan.targetFps), '-vsync', 'cfr');
+    }
+
+    args.push(
       '-pix_fmt',
       'yuv420p',
+      '-color_range',
+      'tv',
       '-color_primaries',
       'bt709',
       '-color_trc',
@@ -326,7 +341,7 @@ export async function encodeVideoInBrowser(
       '-c:a',
       'aac',
       '-b:a',
-      `${plan.audioBitrateKbps || 96}k`,
+      `${plan.audioBitrateKbps || 128}k`,
       '-ar',
       '44100',
       '-ac',

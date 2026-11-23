@@ -37,9 +37,9 @@ const WA_PRESET_OPTIONS: Array<{
   label: string;
   sub: string;
 }> = [
-  { value: 'strict_bypass', label: 'Bypass Ketat', sub: '720p · ~1.25 Mbps' },
-  { value: 'balanced_720', label: 'Seimbang', sub: '720p · ~1.75 Mbps' },
-  { value: 'hd_1080', label: 'HD Status', sub: '1080p · ~2.5 Mbps' },
+  { value: 'pure_hd_1080', label: 'PureHD 1080p', sub: '1080p · ~3.8 Mbps' },
+  { value: 'balanced_720', label: 'Tajam 720p', sub: '720p · ~2.0 Mbps' },
+  { value: 'strict_bypass', label: 'Hemat Ketat', sub: '720p · ~1.25 Mbps' },
 ];
 
 const RESOLUTION_OPTIONS: Array<{
@@ -104,10 +104,10 @@ export function EncoderControls({
       onChange({
         ...settings,
         mode: 'auto',
-        waPreset: 'strict_bypass',
-        h264Profile: 'baseline',
+        waPreset: 'pure_hd_1080',
+        h264Profile: 'high',
         useTargetSizeCap: true,
-        targetSizeMb: 10.5,
+        targetSizeMb: 14.5,
         fps: 'auto',
         sharpen: true,
         normalizeHdr: true,
@@ -410,7 +410,7 @@ export function EncoderControls({
 
                 {settings.useTargetSizeCap && (
                   <div className="grid grid-cols-3 gap-1.5">
-                    {[8, 10.5, 14].map((mb) => (
+                    {[10.5, 12.5, 14.5].map((mb) => (
                       <button
                         key={mb}
                         type="button"
@@ -422,7 +422,7 @@ export function EncoderControls({
                             : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                         }`}
                       >
-                        {mb === 10.5 ? '10.5 MB (WA)' : `${mb} MB`}
+                        {mb === 14.5 ? '14.5 MB (HD)' : `${mb} MB`}
                       </button>
                     ))}
                   </div>

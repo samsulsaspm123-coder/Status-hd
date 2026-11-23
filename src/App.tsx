@@ -35,13 +35,13 @@ import { computeEncodingPlan, formatBytes } from './utils/waCompressionMath.ts';
 function buildDefaultSettings(probe: VideoProbeInfo): EncodeSettings {
   return {
     mode: 'auto',
-    waPreset: 'strict_bypass',
-    h264Profile: 'baseline',
+    waPreset: 'pure_hd_1080',
+    h264Profile: 'high',
     resolution: 'auto',
     aspectMode: 'keep',
-    targetSizeMb: 10.5,
+    targetSizeMb: 14.5,
     useTargetSizeCap: true,
-    crf: 22,
+    crf: 20,
     fps: 'auto',
     sharpen: true,
     normalizeHdr: true,

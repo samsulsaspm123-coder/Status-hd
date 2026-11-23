@@ -124,13 +124,13 @@ export function BotWhatsAppPanel({
 
         const settings: EncodeSettings = {
           mode: 'auto',
-          waPreset: 'strict_bypass',
-          h264Profile: 'baseline',
+          waPreset: 'pure_hd_1080',
+          h264Profile: 'high',
           resolution: simResolution,
           aspectMode: 'keep',
-          targetSizeMb: 10.5,
+          targetSizeMb: 14.5,
           useTargetSizeCap: true,
-          crf: 22,
+          crf: 20,
           fps: 'auto',
           sharpen: true,
           normalizeHdr: true,
@@ -223,7 +223,7 @@ export function BotWhatsAppPanel({
 
   const curlExample = `curl -X POST "${origin}/api/bot/process?format=json" \\
   -F "video=@video_kamera.mp4" \\
-  -F "resolution=720p"`;
+  -F "resolution=1080p"`;
 
   return (
     <div className="space-y-10">
@@ -462,10 +462,13 @@ export function BotWhatsAppPanel({
                         lalu scan QR lewat menu <strong>WhatsApp → Perangkat Tertaut</strong>.
                       </li>
                       <li>
-                        Kirim video ke nomor bot (atau ke <em>Chat Diri Sendiri</em> dengan caption{' '}
-                        <span className="font-mono">hd</span> / <span className="font-mono">720p</span> /{' '}
-                        <span className="font-mono">1080p</span>), lalu{' '}
-                        <strong>Teruskan (Forward) → Status Saya</strong>.
+                        Kirim video sebagai <strong>Dokumen / File</strong> (paling disarankan agar
+                        asli tanpa terkompres WA sebelum masuk bot). Tanpa caption langsung diproses
+                        dengan resep <strong>PureHD 1080p</strong> (High@L4.0, ~3.8 Mbps), atau
+                        gunakan caption <span className="font-mono">720p</span> /{' '}
+                        <span className="font-mono">540p</span> untuk klip panjang. Lalu klik ikon{' '}
+                        <strong>Teruskan (Forward)</strong> di samping video balasan →{' '}
+                        <strong>Status Saya</strong> (video dikirim tanpa caption agar bersih).
                       </li>
                     </ol>
                   </div>

@@ -115,13 +115,13 @@ function analyzeWhatsAppRisk(info: Omit<VideoProbeInfo, 'waRiskLevel' | 'waRiskS
       title: `Bitrate kamera sangat tinggi (${(info.videoBitrateKbps / 1000).toFixed(1)} Mbps)`,
       detail: 'Video kamera bawaan (10–50 Mbps) memicu transcoder agresif WhatsApp yang merusak ketajaman menjadi ~1.2 Mbps.',
     });
-  } else if (info.videoBitrateKbps > 3200) {
+  } else if (info.videoBitrateKbps > 3950) {
     warningCount++;
     diagnostics.push({
       id: 'bitrate',
       severity: 'warning',
       title: `Bitrate di atas sweet spot (${(info.videoBitrateKbps / 1000).toFixed(1)} Mbps)`,
-      detail: 'Mengunci bitrate puncak (maxrate) di kisaran 2.2–3.5 Mbps mencegah penurunan kualitas mendadak saat diunggah.',
+      detail: 'Mengunci bitrate puncak (maxrate) di kisaran 2.0–3.8 Mbps mencegah penurunan kualitas mendadak saat diunggah.',
     });
   } else {
     diagnostics.push({
@@ -376,7 +376,8 @@ function buildFfmpegArgs(
 
   filters.push('setsar=1');
 
-  if (settings.sharpen) {
+  const isDownscaling = plan.targetWidth < probe.width || plan.targetHeight < probe.height;
+  if (settings.sharpen && isDownscaling) {
     filters.push('unsharp=3:3:0.35:3:3:0.0');
   }
 
@@ -394,7 +395,14 @@ function buildFfmpegArgs(
     args.push('-t', targetDuration.toFixed(2));
   }
 
+  const bufsizeKbps = Math.round(plan.targetMaxBitrateKbps * 1.5);
+  const shouldForceFps =
+    probe.fps > 29.98 ||
+    (settings.mode === 'manual' && (settings.fps === '30' || settings.fps === '24'));
+
   args.push(
+    '-map_metadata',
+    '-1',
     '-vf',
     filters.join(','),
     '-c:v',
@@ -410,15 +418,16 @@ function buildFfmpegArgs(
     '-maxrate',
     `${plan.targetMaxBitrateKbps}k`,
     '-bufsize',
-    `${plan.targetMaxBitrateKbps * 2}k`,
-    '-r',
-    String(plan.targetFps),
-    '-vsync',
-    'cfr',
-    '-g',
-    String(plan.targetFps * 2),
-    '-keyint_min',
-    String(plan.targetFps),
+    `${bufsizeKbps}k`
+  );
+
+  if (shouldForceFps) {
+    args.push('-r', String(plan.targetFps), '-vsync', 'cfr');
+  }
+
+  args.push(
+    '-color_range',
+    'tv',
     '-color_primaries',
     'bt709',
     '-color_trc',
@@ -813,13 +822,13 @@ async function startServer() {
 
       const settings: EncodeSettings = {
         mode: 'auto',
-        waPreset: 'strict_bypass',
-        h264Profile: 'baseline',
+        waPreset: 'pure_hd_1080',
+        h264Profile: 'high',
         resolution,
         aspectMode,
-        targetSizeMb: 10.5,
+        targetSizeMb: 14.5,
         useTargetSizeCap: true,
-        crf: 22,
+        crf: 20,
         fps: 'auto',
         sharpen: true,
         normalizeHdr: true,
@@ -993,13 +1002,13 @@ async function startServer() {
 
         const settings: EncodeSettings = {
           mode: 'auto',
-          waPreset: 'strict_bypass',
-          h264Profile: 'baseline',
+          waPreset: 'pure_hd_1080',
+          h264Profile: 'high',
           resolution,
           aspectMode: 'keep',
-          targetSizeMb: 10.5,
+          targetSizeMb: 14.5,
           useTargetSizeCap: true,
-          crf: 22,
+          crf: 20,
           fps: 'auto',
           sharpen: true,
           normalizeHdr: true,
@@ -1030,7 +1039,7 @@ async function startServer() {
         const uploadedMedia = (await uploadRes.json()) as { id?: string };
         if (!uploadedMedia.id) return;
 
-        // 5. Reply video to user so they can Forward to Story
+        // 5. Reply video (without caption) then send info text separately so Forward -> Status stays clean
         const outMb = (outStat.size / (1024 * 1024)).toFixed(2);
         await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
           method: 'POST',
@@ -1044,7 +1053,21 @@ async function startServer() {
             type: 'video',
             video: {
               id: uploadedMedia.id,
-              caption: `Siap Story WA (${outMb} MB). Teruskan (Forward) video ini langsung ke Status Saya agar tetap tajam.`,
+            },
+          }),
+        });
+        await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: sender,
+            type: 'text',
+            text: {
+              body: `Siap Story WA (${outMb} MB). Klik ikon Teruskan (Forward) di samping video di atas -> Status Saya.`,
             },
           }),
         });

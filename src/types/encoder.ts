@@ -2,7 +2,7 @@ export type ResolutionOption = 'auto' | '1080p' | '720p' | '540p' | 'original';
 export type AspectMode = 'keep' | 'fit916' | 'fill916';
 export type CompressionMode = 'auto' | 'manual';
 export type FpsOption = 'auto' | '30' | '24' | 'keep';
-export type WaPresetProfile = 'strict_bypass' | 'balanced_720' | 'hd_1080';
+export type WaPresetProfile = 'pure_hd_1080' | 'balanced_720' | 'strict_bypass';
 export type H264ProfileOption = 'baseline' | 'main' | 'high';
 
 export interface VideoDiagnosticIssue {
